@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Zap, Shield, Globe } from 'lucide-react';
+import { ArrowRight, Zap, Shield, Globe, Check } from 'lucide-react';
 
 export default function LandingPage() {
   return (
@@ -8,9 +8,7 @@ export default function LandingPage() {
 
         {/* Hero Section */}
         <div className="space-y-6">
-          <div className="inline-block bg-blue-50 text-blue-700 text-sm font-semibold px-4 py-1.5 rounded-full border border-blue-100 mb-2">
-            Pakistan's #1 Link Indexing Platform
-          </div>
+       
           <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-black">
             Premium{' '}
             <span className="text-blue-600">Link Indexing</span>
@@ -51,7 +49,16 @@ export default function LandingPage() {
             </div>
             <h3 className="text-2xl font-bold text-white">Standard Plan</h3>
             <div className="text-4xl font-extrabold text-white">PKR 500</div>
-            <p className="text-blue-100">Get 1000 tokens instantly upon manual receipt approval.</p>
+            <div className="space-y-3 pt-2 text-left">
+              <div className="flex items-center gap-3 text-blue-100">
+                <Check className="w-5 h-5 text-white bg-white/20 rounded-full p-1" />
+                <span className="font-medium">500 link submission tokens</span>
+              </div>
+              <div className="flex items-center gap-3 text-blue-100">
+                <Check className="w-5 h-5 text-white bg-white/20 rounded-full p-1" />
+                <span className="font-medium">Instant link indexing included</span>
+              </div>
+            </div>
           </div>
 
           <div className="bg-white border border-gray-100 shadow-sm p-8 rounded-3xl text-left space-y-4 hover:-translate-y-1 transition-transform duration-300">

@@ -57,3 +57,28 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: error.message || 'Error deleting submissions' }, { status: 500 });
   }
 }
+
+export async function PATCH(req: Request) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id, status } = await req.json();
+    if (!id || !status) {
+      return NextResponse.json({ error: 'ID and status required' }, { status: 400 });
+    }
+
+    await connectToDatabase();
+    const submission = await Submission.findByIdAndUpdate(id, { status }, { new: true });
+
+    if (!submission) {
+      return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, submission });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Error updating submission' }, { status: 500 });
+  }
+}

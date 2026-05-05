@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Link as LinkIcon, LogOut, Coins, CreditCard, CheckCircle2, Upload, X, ExternalLink, Clock, History, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link as LinkIcon, LogOut, Coins, CreditCard, CheckCircle2, Upload, X, ExternalLink, Clock, History, ChevronLeft, ChevronRight, Loader2, Globe } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -15,10 +15,8 @@ export default function Dashboard() {
   const [subTotalPages, setSubTotalPages] = useState(1);
   const [subTotal, setSubTotal] = useState(0);
 
-  // Submission Loader State
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [loadingMessage, setLoadingMessage] = useState('Connecting...');
+  // Active Submissions State
+  const [activeSubmissions, setActiveSubmissions] = useState<any[]>([]);
 
   // Buy Tokens Modal State
   const [showBuyModal, setShowBuyModal] = useState(false);
@@ -106,50 +104,60 @@ export default function Dashboard() {
     e.preventDefault();
     if (user.tokens <= 0) return toast.error('You do not have enough tokens');
 
-    setIsSubmitting(true);
-    setProgress(0);
-    setLoadingMessage('Connecting...');
+    const linkToSubmit = link.trim();
+    if (!linkToSubmit) return;
+    
+    setLink('');
 
     try {
       const res = await fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ link }),
+        body: JSON.stringify({ link: linkToSubmit }),
       });
       const data = await res.json();
 
       if (res.ok) {
         setUser({ ...user, tokens: data.newTokens });
-
-        const totalMs = data.randomSeconds * 1000;
-        const intervalMs = 100;
-        const steps = totalMs / intervalMs;
-        let currentStep = 0;
+        
+        const newActiveSub = {
+          id: Date.now().toString(),
+          link: data.link || linkToSubmit,
+          timeLeft: 30,
+          status: 'indexing'
+        };
+        
+        setActiveSubmissions(prev => [newActiveSub, ...prev]);
 
         const interval = setInterval(() => {
-          currentStep++;
-          const currentProgress = (currentStep / steps) * 100;
-          setProgress(Math.min(currentProgress, 100));
+          setActiveSubmissions(prev => {
+            const index = prev.findIndex(s => s.id === newActiveSub.id);
+            if (index === -1) {
+              clearInterval(interval);
+              return prev;
+            }
+            
+            const updated = [...prev];
+            if (updated[index].timeLeft > 0) {
+              updated[index].timeLeft -= 1;
+              return updated;
+            } else {
+              clearInterval(interval);
+              setTimeout(() => {
+                setActiveSubmissions(current => current.filter(s => s.id !== newActiveSub.id));
+                fetchSubmissions(1);
+              }, 1000);
+              return updated;
+            }
+          });
+        }, 1000);
 
-          if (currentProgress > 30 && currentProgress <= 60) setLoadingMessage('Processing indexing...');
-          else if (currentProgress > 60 && currentProgress < 95) setLoadingMessage('Finalizing submission...');
-          else if (currentProgress >= 95) setLoadingMessage('Done!');
-
-          if (currentStep >= steps) {
-            clearInterval(interval);
-            setIsSubmitting(false);
-            setLink('');
-            fetchSubmissions(subPage);
-            toast.success('Link submitted successfully!', { duration: 4000, icon: '🚀' });
-          }
-        }, intervalMs);
+        toast.success('Indexing started!', { icon: '🚀' });
       } else {
         toast.error(data.error || 'Failed to submit link');
-        setIsSubmitting(false);
       }
     } catch {
       toast.error('An error occurred');
-      setIsSubmitting(false);
     }
   };
 
@@ -197,27 +205,62 @@ export default function Dashboard() {
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">URL to Index</label>
             <input
-              type="url"
+              type="text"
               required
-              placeholder="https://example.com/my-article"
+              placeholder="example.com or https://example.com"
               className="w-full bg-gray-50 border border-gray-200 rounded-xl py-4 px-4 text-black placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all text-base"
               value={link}
               onChange={(e) => setLink(e.target.value)}
-              disabled={isSubmitting}
+              disabled={false}
             />
           </div>
           <button
             type="submit"
-            disabled={isSubmitting || user?.tokens <= 0}
+            disabled={user?.tokens <= 0}
             className={`w-full py-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2
-              ${isSubmitting || user?.tokens <= 0
+              ${user?.tokens <= 0
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'}`}
+                : 'bg-[#007ba0] hover:bg-[#006a8a] text-white shadow-lg shadow-cyan-900/20'}`}
           >
-            {user?.tokens <= 0 ? 'Not Enough Tokens — Buy More' : 'Submit Link (1 Token)'}
+            <span className="text-lg">📡</span> Submit & Start Indexing
           </button>
         </form>
       </div>
+
+      {/* Active Submissions */}
+      {activeSubmissions.length > 0 && (
+        <div className="bg-[#0b1424] rounded-2xl border border-gray-800 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between bg-white/5">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <span className="w-6 h-6 bg-orange-100/10 rounded flex items-center justify-center text-orange-400">📋</span>
+              Active Submissions
+            </h2>
+            <span className="text-xs font-medium text-blue-400 bg-blue-400/10 px-3 py-1 rounded-full border border-blue-400/20">
+              {activeSubmissions.length} active links
+            </span>
+          </div>
+          <div className="divide-y divide-gray-800">
+            {activeSubmissions.map((s) => (
+              <div key={s.id} className="flex items-center justify-between px-6 py-5 bg-[#0d1b2e]/50">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Globe className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  <span className="text-gray-300 text-sm font-medium truncate max-w-[250px] md:max-w-xl">
+                    {s.link}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                  <div className="flex items-center gap-2 bg-[#162a45] px-4 py-2 rounded-full border border-blue-500/30">
+                    <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+                    <span className="text-cyan-400 text-xs font-bold uppercase tracking-wider">Indexing</span>
+                    <div className="w-px h-3 bg-blue-500/30 mx-1" />
+                    <span className="text-blue-300 text-xs font-mono font-bold w-6 text-center">{s.timeLeft}s</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Submission History */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -243,15 +286,9 @@ export default function Dashboard() {
                       <span className="text-blue-600 text-xs font-bold">{(subPage - 1) * 30 + i + 1}</span>
                     </div>
                     <div className="min-w-0">
-                      <a
-                        href={s.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-700 hover:underline text-sm font-medium flex items-center gap-1"
-                      >
-                        <span className="truncate block max-w-[280px] md:max-w-lg">{s.link}</span>
-                        <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                      </a>
+                      <span className="text-gray-700 text-sm font-medium block truncate max-w-[280px] md:max-w-lg">
+                        {s.link}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-gray-400 flex-shrink-0 ml-4">
@@ -286,25 +323,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Fake Loader Modal */}
-      {isSubmitting && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-gray-100 shadow-2xl p-8 rounded-3xl w-full max-w-md text-center space-y-6">
-            <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto">
-              <LinkIcon className="w-7 h-7 text-blue-600 animate-pulse" />
-            </div>
-            <h3 className="text-xl font-bold text-black">Processing Submission</h3>
-            <p className="text-gray-500 animate-pulse">{loadingMessage}</p>
-            <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-600 transition-all duration-100 ease-linear rounded-full"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-sm text-gray-400 font-mono">{Math.round(progress)}%</p>
-          </div>
-        </div>
-      )}
 
       {/* Buy Tokens Modal */}
       {showBuyModal && (
@@ -324,7 +342,6 @@ export default function Dashboard() {
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-sm text-gray-700 space-y-3">
                 <p className="font-semibold text-black">Payment Instructions</p>
                 <div className="space-y-1.5">
-                  <p>Send exactly <strong className="text-blue-700">PKR 500</strong> to:</p>
                   <div className="bg-white rounded-xl p-3 border border-blue-100 space-y-1.5">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-500 text-xs">Account Name</span>
@@ -345,7 +362,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <p className="text-gray-500">2. Upload screenshot of successful transaction.</p>
-                <p className="text-gray-500">3. Wait for admin approval to receive <strong className="text-black">1000 tokens</strong>.</p>
+                <p className="text-gray-500">3. Wait for admin approval to receive <strong className="text-black">indexing tokens.</strong>.</p>
               </div>
 
               <div

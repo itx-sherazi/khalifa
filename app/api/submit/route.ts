@@ -8,8 +8,11 @@ export const dynamic = 'force-dynamic';
 
 function isValidUrl(url: string): boolean {
   try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    // If it doesn't have a protocol, we'll test it as https
+    const urlToTest = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+    const parsed = new URL(urlToTest);
+    // Basic check: must have a protocol and a domain with at least one dot
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.hostname.includes('.');
   } catch {
     return false;
   }
@@ -27,8 +30,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Link is required' }, { status: 400 });
     }
 
-    if (!isValidUrl(link)) {
-      return NextResponse.json({ error: 'Please enter a valid URL starting with http:// or https://' }, { status: 400 });
+    let finalLink = link.trim();
+    if (!finalLink.startsWith('http://') && !finalLink.startsWith('https://')) {
+      finalLink = `https://${finalLink}`;
+    }
+
+    if (!isValidUrl(finalLink)) {
+      return NextResponse.json({ error: 'Please enter a valid URL' }, { status: 400 });
     }
 
     await connectToDatabase();
@@ -45,7 +53,7 @@ export async function POST(req: Request) {
     user.tokens -= 1;
     await user.save();
 
-    await Submission.create({ userId: user._id, link });
+    await Submission.create({ userId: user._id, link: finalLink });
 
     const randomSeconds = Math.floor(Math.random() * (30 - 10 + 1)) + 10;
 

@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import {
   LogOut, Check, X, Users, Link as LinkIcon, FileText,
   ExternalLink, Trash2, CheckSquare, Square, Plus, Search,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Edit2
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -32,6 +32,10 @@ export default function AdminDashboard() {
 
   const [userSearch, setUserSearch] = useState('');
   const [subSearch, setSubSearch] = useState('');
+
+  const [editingTokenUserId, setEditingTokenUserId] = useState<string | null>(null);
+  const [editTokenValue, setEditTokenValue] = useState<string>('');
+  const [updatingTokens, setUpdatingTokens] = useState(false);
 
   useEffect(() => { fetchData(1); }, []);
 
@@ -118,6 +122,21 @@ export default function AdminDashboard() {
     );
   }, [submissions, subSearch]);
 
+  const groupedSubmissions = useMemo(() => {
+    const grouped: Record<string, any> = {};
+    filteredSubmissions.forEach(s => {
+      const userId = s.userId?._id || 'unknown';
+      if (!grouped[userId]) {
+        grouped[userId] = {
+          user: s.userId || { name: 'Unknown', email: 'N/A' },
+          links: []
+        };
+      }
+      grouped[userId].links.push(s);
+    });
+    return Object.values(grouped);
+  }, [filteredSubmissions]);
+
   // Selection helpers
   const toggleUser = (id: string) => setSelectedUsers(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleAllUsers = () => setSelectedUsers(selectedUsers.size === filteredUsers.length ? new Set() : new Set(filteredUsers.map(u => u._id)));
@@ -145,6 +164,28 @@ export default function AdminDashboard() {
       }
     } catch { toast.error('Error adding tokens'); }
     finally { setAddingTokens(null); }
+  };
+
+  const handleUpdateTokens = async (userId: string) => {
+    const tokens = parseInt(editTokenValue);
+    if (isNaN(tokens) || tokens < 0) return toast.error('Enter a valid token amount');
+    setUpdatingTokens(true);
+    try {
+      const res = await fetch('/api/admin/update-tokens', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, tokens }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Tokens updated to ${tokens}`);
+        setUsers(prev => prev.map(u => u._id === userId ? { ...u, tokens: data.newTokens } : u));
+        setEditingTokenUserId(null);
+      } else {
+        toast.error(data.error || 'Failed to update tokens');
+      }
+    } catch { toast.error('Error updating tokens'); }
+    finally { setUpdatingTokens(false); }
   };
 
   // Delete users
@@ -177,6 +218,24 @@ export default function AdminDashboard() {
       else toast.error('Failed to delete submissions');
     } catch { toast.error('Error deleting submissions'); }
     finally { setDeleting(false); }
+  };
+
+  const handleStatusUpdate = async (id: string, newStatus: string) => {
+    try {
+      const res = await fetch('/api/admin/submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+      if (res.ok) {
+        setSubmissions(prev => prev.map(s => s._id === id ? { ...s, status: newStatus } : s));
+        toast.success(`Marked as ${newStatus}`);
+      } else {
+        toast.error('Failed to update status');
+      }
+    } catch {
+      toast.error('Error updating status');
+    }
   };
 
   // Approve / Reject receipt
@@ -305,7 +364,45 @@ export default function AdminDashboard() {
                       <td className="px-4 py-4 font-semibold text-black whitespace-nowrap">{u.name}</td>
                       <td className="px-4 py-4 text-gray-500">{u.email}</td>
                       <td className="px-4 py-4">
-                        <span className="inline-flex items-center bg-blue-50 text-blue-700 font-bold px-2.5 py-1 rounded-lg text-xs">{u.tokens}</span>
+                        {editingTokenUserId === u._id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={editTokenValue}
+                              onChange={(e) => setEditTokenValue(e.target.value)}
+                              className="w-20 border border-blue-200 rounded-lg px-2 py-1 text-xs text-black focus:outline-none focus:ring-1 focus:ring-blue-100"
+                              autoFocus
+                            />
+                            <button 
+                              onClick={() => handleUpdateTokens(u._id)}
+                              disabled={updatingTokens}
+                              className="p-1 text-green-600 hover:bg-green-50 rounded"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={() => setEditingTokenUserId(null)}
+                              className="p-1 text-red-500 hover:bg-red-50 rounded"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 group">
+                            <span className="inline-flex items-center bg-blue-50 text-blue-700 font-bold px-2.5 py-1 rounded-lg text-xs">
+                              {u.tokens}
+                            </span>
+                            <button 
+                              onClick={() => {
+                                setEditingTokenUserId(u._id);
+                                setEditTokenValue(u.tokens.toString());
+                              }}
+                              className="p-1 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-1.5">
@@ -401,41 +498,68 @@ export default function AdminDashboard() {
                         {allSubsSelected ? <CheckSquare className="w-4 h-4 text-blue-600" /> : <Square className="w-4 h-4" />}
                       </button>
                     </th>
-                    <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">User</th>
-                    <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Link</th>
-                    <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Delete</th>
+                    <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Submission Details</th>
+                    <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredSubmissions.length === 0 ? (
-                    <tr><td colSpan={5} className="px-6 py-10 text-center text-gray-400">No submissions found.</td></tr>
-                  ) : filteredSubmissions.map(s => (
-                    <tr key={s._id} className={`hover:bg-gray-50 transition-colors ${selectedSubmissions.has(s._id) ? 'bg-blue-50/40' : ''}`}>
-                      <td className="px-4 py-4">
-                        <button onClick={() => toggleSubmission(s._id)} className="text-gray-400 hover:text-blue-600 transition-colors">
-                          {selectedSubmissions.has(s._id) ? <CheckSquare className="w-4 h-4 text-blue-600" /> : <Square className="w-4 h-4" />}
-                        </button>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <p className="font-semibold text-black">{s.userId?.name || 'Unknown'}</p>
-                        <p className="text-xs text-gray-400">{s.userId?.email}</p>
-                      </td>
-                      <td className="px-4 py-4 max-w-xs">
-                        <a href={s.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 text-sm">
-                          <span className="truncate block max-w-[220px]">{s.link}</span>
-                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                        </a>
-                      </td>
-                      <td className="px-4 py-4 text-gray-400 text-xs whitespace-nowrap">{new Date(s.createdAt).toLocaleString()}</td>
-                      <td className="px-4 py-4">
-                        <button
-                          onClick={() => handleDeleteSubmissions([s._id])}
-                          disabled={deleting}
-                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                  {groupedSubmissions.length === 0 ? (
+                    <tr><td colSpan={3} className="px-6 py-10 text-center text-gray-400">No submissions found.</td></tr>
+                  ) : groupedSubmissions.map((group: any) => (
+                    <tr key={group.user._id || Math.random()} className="hover:bg-gray-50/50 transition-colors">
+                      <td colSpan={3} className="p-0">
+                        <div className="bg-gray-50/30 px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-xs">
+                              {group.user.name?.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-bold text-black">{group.user.name}</p>
+                              <p className="text-xs text-gray-400">{group.user.email}</p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-medium text-gray-400 bg-white border border-gray-100 px-2 py-1 rounded-lg">
+                            {group.links.length} Links
+                          </span>
+                        </div>
+                        <div className="divide-y divide-gray-50">
+                          {group.links.map((s: any) => (
+                            <div key={s._id} className="flex items-center justify-between px-4 py-3 hover:bg-blue-50/20 transition-colors">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <button onClick={() => toggleSubmission(s._id)} className="text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0">
+                                  {selectedSubmissions.has(s._id) ? <CheckSquare className="w-4 h-4 text-blue-600" /> : <Square className="w-4 h-4" />}
+                                </button>
+                                <div className="min-w-0">
+                                  <span className="text-gray-700 text-sm block truncate max-w-[300px] md:max-w-xl">
+                                    {s.link}
+                                  </span>
+                                  <p className="text-[10px] text-gray-300 mt-0.5">
+                                    {new Date(s.createdAt).toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <button
+                                  onClick={() => handleStatusUpdate(s._id, s.status === 'indexed' ? 'new' : 'indexed')}
+                                  className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                                    s.status === 'indexed' 
+                                    ? 'bg-green-50 text-green-600 border-green-100' 
+                                    : 'bg-yellow-50 text-yellow-600 border-yellow-100'
+                                  }`}
+                                >
+                                  {s.status === 'indexed' ? 'Indexed' : 'New'}
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSubmissions([s._id])}
+                                  disabled={deleting}
+                                  className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </td>
                     </tr>
                   ))}

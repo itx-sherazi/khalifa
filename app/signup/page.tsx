@@ -23,7 +23,7 @@ export default function Signup() {
       const data = await res.json();
       if (res.ok) {
         toast.success('Account created successfully!');
-        router.push('/dashboard');
+        router.push(data.user?.role === 'admin' ? '/admin' : '/dashboard');
       } else {
         toast.error(data.error || 'Failed to sign up');
       }

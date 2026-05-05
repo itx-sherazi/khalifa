@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-const MONGODB_URI = 'mongodb+srv://binkhalifa248_db_user:lAs2KmLTvd0WNJKZ@cluster0.bx3fdd1.mongodb.net/khalifa_db?appName=Cluster0';
+const MONGODB_URI = 'mongodb+srv://sa0071429_db_user:RB4YKjqEr1d6tjV7@cluster0.knsilde.mongodb.net/?appName=Cluster0';
 
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },

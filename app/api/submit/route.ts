@@ -4,6 +4,17 @@ import User from '@/models/User';
 import Submission from '@/models/Submission';
 import { getSession } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const session = await getSession();
@@ -14,6 +25,10 @@ export async function POST(req: Request) {
     const { link } = await req.json();
     if (!link) {
       return NextResponse.json({ error: 'Link is required' }, { status: 400 });
+    }
+
+    if (!isValidUrl(link)) {
+      return NextResponse.json({ error: 'Please enter a valid URL starting with http:// or https://' }, { status: 400 });
     }
 
     await connectToDatabase();
@@ -27,17 +42,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Insufficient tokens' }, { status: 400 });
     }
 
-    // Deduct token
     user.tokens -= 1;
     await user.save();
 
-    // Save submission
-    await Submission.create({
-      userId: user._id,
-      link,
-    });
+    await Submission.create({ userId: user._id, link });
 
-    // Return random seconds (10-30) for fake loader
     const randomSeconds = Math.floor(Math.random() * (30 - 10 + 1)) + 10;
 
     return NextResponse.json({ success: true, randomSeconds, newTokens: user.tokens });

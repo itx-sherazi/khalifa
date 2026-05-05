@@ -18,10 +18,5 @@ const UserSchema = new Schema<IUser>({
   createdAt: { type: Date, default: Date.now },
 }, { strict: true });
 
-// Clear cached model to avoid stale schema errors (e.g. old 'country' field)
-if (mongoose.connection.models['User']) {
-  delete mongoose.connection.models['User'];
-}
-
-export default mongoose.models['User'] as mongoose.Model<IUser> ||
+export default (mongoose.models.User as mongoose.Model<IUser>) ||
   mongoose.model<IUser>('User', UserSchema);

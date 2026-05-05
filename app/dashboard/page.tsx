@@ -3,13 +3,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Link as LinkIcon, LogOut, Coins, CreditCard, CheckCircle2, Upload, X } from 'lucide-react';
+import { Link as LinkIcon, LogOut, Coins, CreditCard, CheckCircle2, Upload, X, ExternalLink, Clock, History, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [link, setLink] = useState('');
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [subPage, setSubPage] = useState(1);
+  const [subTotalPages, setSubTotalPages] = useState(1);
+  const [subTotal, setSubTotal] = useState(0);
 
   // Submission Loader State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,6 +30,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchUser();
+    fetchSubmissions(1);
   }, []);
 
   const fetchUser = async () => {
@@ -37,11 +42,24 @@ export default function Dashboard() {
       } else {
         router.push('/login');
       }
-    } catch (err) {
+    } catch {
       router.push('/login');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchSubmissions = async (page = 1) => {
+    try {
+      const res = await fetch(`/api/user/submissions?page=${page}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSubmissions(data.submissions);
+        setSubPage(data.page);
+        setSubTotalPages(data.totalPages);
+        setSubTotal(data.total);
+      }
+    } catch {}
   };
 
   const handleLogout = async () => {
@@ -54,9 +72,7 @@ export default function Dashboard() {
     if (file) {
       setReceiptFile(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setReceiptPreview(reader.result as string);
-      };
+      reader.onloadend = () => setReceiptPreview(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -69,10 +85,7 @@ export default function Dashboard() {
       const formData = new FormData();
       formData.append('receipt', receiptFile);
 
-      const res = await fetch('/api/buy-tokens', {
-        method: 'POST',
-        body: formData,
-      });
+      const res = await fetch('/api/buy-tokens', { method: 'POST', body: formData });
       if (res.ok) {
         toast.success('Receipt uploaded! Waiting for admin approval.');
         setShowBuyModal(false);
@@ -82,7 +95,7 @@ export default function Dashboard() {
         const data = await res.json();
         toast.error(data.error || 'Failed to upload receipt');
       }
-    } catch (err) {
+    } catch {
       toast.error('An error occurred');
     } finally {
       setIsUploading(false);
@@ -91,9 +104,7 @@ export default function Dashboard() {
 
   const handleSubmitLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (user.tokens <= 0) {
-      return toast.error('You do not have enough tokens');
-    }
+    if (user.tokens <= 0) return toast.error('You do not have enough tokens');
 
     setIsSubmitting(true);
     setProgress(0);
@@ -120,18 +131,15 @@ export default function Dashboard() {
           const currentProgress = (currentStep / steps) * 100;
           setProgress(Math.min(currentProgress, 100));
 
-          if (currentProgress > 30 && currentProgress <= 60) {
-            setLoadingMessage('Processing indexing...');
-          } else if (currentProgress > 60 && currentProgress < 95) {
-            setLoadingMessage('Finalizing submission...');
-          } else if (currentProgress >= 95) {
-            setLoadingMessage('Done!');
-          }
+          if (currentProgress > 30 && currentProgress <= 60) setLoadingMessage('Processing indexing...');
+          else if (currentProgress > 60 && currentProgress < 95) setLoadingMessage('Finalizing submission...');
+          else if (currentProgress >= 95) setLoadingMessage('Done!');
 
           if (currentStep >= steps) {
             clearInterval(interval);
             setIsSubmitting(false);
             setLink('');
+            fetchSubmissions(subPage);
             toast.success('Link submitted successfully!', { duration: 4000, icon: '🚀' });
           }
         }, intervalMs);
@@ -139,7 +147,7 @@ export default function Dashboard() {
         toast.error(data.error || 'Failed to submit link');
         setIsSubmitting(false);
       }
-    } catch (err) {
+    } catch {
       toast.error('An error occurred');
       setIsSubmitting(false);
     }
@@ -153,6 +161,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-white p-6 max-w-5xl mx-auto space-y-6">
+
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
         <div>
@@ -179,12 +188,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Main Card */}
+      {/* Submit Link Card */}
       <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
         <h2 className="text-xl font-bold text-black mb-6 flex items-center gap-2">
           <LinkIcon className="text-blue-600 w-5 h-5" /> Submit a New Link
         </h2>
-
         <form onSubmit={handleSubmitLink} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">URL to Index</label>
@@ -206,9 +214,76 @@ export default function Dashboard() {
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'}`}
           >
-            {user?.tokens <= 0 ? 'Not Enough Tokens' : 'Submit Link (1 Token)'}
+            {user?.tokens <= 0 ? 'Not Enough Tokens — Buy More' : 'Submit Link (1 Token)'}
           </button>
         </form>
+      </div>
+
+      {/* Submission History */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-black flex items-center gap-2">
+            <History className="w-5 h-5 text-blue-600" /> My Submission History
+          </h2>
+          <span className="text-xs text-gray-400">{subTotal} total submissions</span>
+        </div>
+
+        {submissions.length === 0 ? (
+          <div className="py-12 text-center text-gray-400 space-y-2">
+            <LinkIcon className="w-8 h-8 mx-auto text-gray-200" />
+            <p className="text-sm">No submissions yet. Submit your first link above!</p>
+          </div>
+        ) : (
+          <>
+            <div className="divide-y divide-gray-50">
+              {submissions.map((s, i) => (
+                <div key={s._id} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-blue-600 text-xs font-bold">{(subPage - 1) * 30 + i + 1}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <a
+                        href={s.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 hover:underline text-sm font-medium flex items-center gap-1"
+                      >
+                        <span className="truncate block max-w-[280px] md:max-w-lg">{s.link}</span>
+                        <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400 flex-shrink-0 ml-4">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span className="whitespace-nowrap">{new Date(s.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {subTotalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-50">
+                <span className="text-xs text-gray-400">Page {subPage} of {subTotalPages}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => fetchSubmissions(subPage - 1)}
+                    disabled={subPage === 1}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" /> Prev
+                  </button>
+                  <button
+                    onClick={() => fetchSubmissions(subPage + 1)}
+                    disabled={subPage === subTotalPages}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Fake Loader Modal */}
@@ -220,12 +295,11 @@ export default function Dashboard() {
             </div>
             <h3 className="text-xl font-bold text-black">Processing Submission</h3>
             <p className="text-gray-500 animate-pulse">{loadingMessage}</p>
-
             <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-600 transition-all duration-100 ease-linear rounded-full"
                 style={{ width: `${progress}%` }}
-              ></div>
+              />
             </div>
             <p className="text-sm text-gray-400 font-mono">{Math.round(progress)}%</p>
           </div>

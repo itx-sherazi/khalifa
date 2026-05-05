@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://binkhalifa248_db_user:lAs2KmLTvd0WNJKZ@cluster0.bx3fdd1.mongodb.net/khalifa_db?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
@@ -13,20 +13,10 @@ if (!cached) {
 }
 
 async function connectToDatabase() {
-  if (cached.conn) {
-    return cached.conn;
-  }
+  if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    const opts = {
-      bufferCommands: false,
-    };
-
-    console.log('=> Starting MongoDB connection...');
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      console.log('=> MongoDB successfully connected!');
-      return mongoose;
-    });
+    cached.promise = mongoose.connect(MONGODB_URI!, { bufferCommands: false }).then((m) => m);
   }
 
   try {

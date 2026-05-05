@@ -5,6 +5,8 @@ import User from '@/models/User';
 import { signToken } from '@/lib/auth';
 import { cookies } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     const { email, password } = await req.json();
@@ -15,7 +17,7 @@ export async function POST(req: Request) {
 
     await connectToDatabase();
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 400 });
     }
@@ -27,7 +29,12 @@ export async function POST(req: Request) {
 
     const token = signToken({ id: user._id, role: user.role });
     const cookieStore = await cookies();
-    cookieStore.set('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 60 * 60 * 24 * 7 });
+    cookieStore.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
 
     return NextResponse.json({ success: true, user: { name: user.name, email: user.email, tokens: user.tokens, role: user.role } });
   } catch (error: any) {

@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-12345';
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-khalifa-key-12345';
 
 export function signToken(payload: any) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
@@ -10,7 +10,7 @@ export function signToken(payload: any) {
 export function verifyToken(token: string) {
   try {
     return jwt.verify(token, JWT_SECRET) as any;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

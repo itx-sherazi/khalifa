@@ -12,6 +12,9 @@ import {
 export default function AdminDashboard() {
   const router = useRouter();
   const [users, setUsers] = useState<any[]>([]);
+  const [userPage, setUserPage] = useState(1);
+  const [userTotalPages, setUserTotalPages] = useState(1);
+  const [userTotal, setUserTotal] = useState(0);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [subPage, setSubPage] = useState(1);
   const [subTotalPages, setSubTotalPages] = useState(1);
@@ -32,17 +35,20 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchData(1); }, []);
 
-  const fetchData = async (page = 1) => {
+  const fetchData = async (uPage = 1, sPage = 1) => {
     try {
       const [userRes, subRes, recRes] = await Promise.all([
-        fetch('/api/admin/users'),
-        fetch(`/api/admin/submissions?page=${page}`),
+        fetch(`/api/admin/users?page=${uPage}`),
+        fetch(`/api/admin/submissions?page=${sPage}`),
         fetch('/api/admin/receipts'),
       ]);
 
       if (userRes.ok && subRes.ok && recRes.ok) {
         const [ud, sd, rd] = await Promise.all([userRes.json(), subRes.json(), recRes.json()]);
         setUsers(ud.users);
+        setUserPage(ud.page);
+        setUserTotalPages(ud.totalPages);
+        setUserTotal(ud.total);
         setSubmissions(sd.submissions);
         setSubPage(sd.page);
         setSubTotalPages(sd.totalPages);
@@ -57,6 +63,22 @@ export default function AdminDashboard() {
       toast.error('Error fetching admin data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsersPage = async (page: number) => {
+    try {
+      const res = await fetch(`/api/admin/users?page=${page}`);
+      if (res.ok) {
+        const ud = await res.json();
+        setUsers(ud.users);
+        setUserPage(ud.page);
+        setUserTotalPages(ud.totalPages);
+        setUserTotal(ud.total);
+        setSelectedUsers(new Set());
+      }
+    } catch {
+      toast.error('Error fetching users');
     }
   };
 
@@ -135,7 +157,7 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids }),
       });
-      if (res.ok) { toast.success(`${ids.length} user(s) deleted.`); fetchData(); }
+      if (res.ok) { toast.success(`${ids.length} user(s) deleted.`); fetchUsersPage(userPage); }
       else toast.error('Failed to delete users');
     } catch { toast.error('Error deleting users'); }
     finally { setDeleting(false); }
@@ -181,7 +203,7 @@ export default function AdminDashboard() {
   );
 
   const tabs = [
-    { id: 'users', label: 'Users', icon: Users, count: users.length },
+    { id: 'users', label: 'Users', icon: Users, count: userTotal || users.length },
     { id: 'submissions', label: 'Submissions', icon: LinkIcon, count: subTotal || submissions.length },
     { id: 'receipts', label: 'Pending Receipts', icon: FileText, count: receipts.length },
   ];
@@ -320,6 +342,29 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+            {userTotalPages > 1 && !userSearch && (
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-50">
+                <span className="text-xs text-gray-400">
+                  Page {userPage} of {userTotalPages} &nbsp;·&nbsp; {userTotal} total users
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => fetchUsersPage(userPage - 1)}
+                    disabled={userPage === 1}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" /> Prev
+                  </button>
+                  <button
+                    onClick={() => fetchUsersPage(userPage + 1)}
+                    disabled={userPage === userTotalPages}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
 

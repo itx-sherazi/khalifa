@@ -4,6 +4,10 @@ import Receipt from '@/models/Receipt';
 import { getSession } from '@/lib/auth';
 import { uploadReceiptImage } from '@/lib/cloudinary';
 
+export const dynamic = 'force-dynamic';
+
+const MAX_FILE_SIZE_MB = 5;
+
 export async function POST(req: Request) {
   try {
     const session = await getSession();
@@ -20,6 +24,10 @@ export async function POST(req: Request) {
 
     if (!file.type.startsWith('image/')) {
       return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 });
+    }
+
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      return NextResponse.json({ error: `File size must be under ${MAX_FILE_SIZE_MB}MB` }, { status: 400 });
     }
 
     const arrayBuffer = await file.arrayBuffer();

@@ -7,6 +7,8 @@ import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+const PAGE_SIZE = 30;
+
 export async function GET(req: Request) {
   try {
     const session = await getSession();
@@ -14,10 +16,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectToDatabase();
-    const users = await User.find({}, '-password').sort({ createdAt: -1 });
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
 
-    return NextResponse.json({ success: true, users });
+    await connectToDatabase();
+    const total = await User.countDocuments();
+    const users = await User.find({}, '-password')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * PAGE_SIZE)
+      .limit(PAGE_SIZE);
+
+    return NextResponse.json({ success: true, users, total, page, totalPages: Math.ceil(total / PAGE_SIZE) });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Error fetching users' }, { status: 500 });
   }

@@ -3,6 +3,8 @@ import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
 import { getSession } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     const session = await getSession();
@@ -11,14 +13,15 @@ export async function POST(req: Request) {
     }
 
     const { userId, amount } = await req.json();
-    if (!userId || !amount || isNaN(amount) || amount <= 0) {
+    const parsed = parseInt(amount);
+    if (!userId || !parsed || isNaN(parsed) || parsed <= 0) {
       return NextResponse.json({ error: 'Valid userId and amount required' }, { status: 400 });
     }
 
     await connectToDatabase();
     const user = await User.findByIdAndUpdate(
       userId,
-      { $inc: { tokens: Number(amount) } },
+      { $inc: { tokens: parsed } },
       { new: true }
     );
 

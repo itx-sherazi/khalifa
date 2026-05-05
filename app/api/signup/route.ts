@@ -15,6 +15,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
     }
 
+    if (email.toLowerCase().trim() === 'khalifa') {
+      return NextResponse.json({ error: 'This username is reserved' }, { status: 400 });
+    }
+
     if (password.length < 6) {
       return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
     }

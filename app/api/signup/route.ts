@@ -9,9 +9,9 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password } = await req.json();
+    const { name, email, password, phone } = await req.json();
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !phone) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
     }
 
@@ -27,6 +27,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Name must be at least 2 characters' }, { status: 400 });
     }
 
+    if (phone.trim().length < 10) {
+      return NextResponse.json({ error: 'Enter a valid phone number' }, { status: 400 });
+    }
+
     await connectToDatabase();
 
     const existingUser = await User.findOne({ email });
@@ -39,6 +43,7 @@ export async function POST(req: Request) {
       name: name.trim(),
       email: email.toLowerCase().trim(),
       password: hashedPassword,
+      phone: phone.trim(),
       tokens: 0,
       role: email === 'admin@admin.pk' ? 'admin' : 'user',
     });

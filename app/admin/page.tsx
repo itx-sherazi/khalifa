@@ -345,6 +345,7 @@ export default function AdminDashboard() {
                     </th>
                     <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Name</th>
                     <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Email</th>
+                    <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Phone</th>
                     <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Tokens</th>
                     <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Give Tokens</th>
                     <th className="px-4 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Joined</th>
@@ -363,6 +364,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-4 py-4 font-semibold text-black whitespace-nowrap">{u.name}</td>
                       <td className="px-4 py-4 text-gray-500">{u.email}</td>
+                      <td className="px-4 py-4 text-gray-500">{u.phone}</td>
                       <td className="px-4 py-4">
                         {editingTokenUserId === u._id ? (
                           <div className="flex items-center gap-1">

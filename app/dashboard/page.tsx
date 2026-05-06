@@ -336,7 +336,6 @@ export default function Dashboard() {
             </button>
 
             <h3 className="text-xl font-bold text-black mb-1">Buy Tokens</h3>
-            <p className="text-gray-500 text-sm mb-6">Plan: 1000 tokens for PKR 500</p>
 
             <div className="space-y-5">
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-sm text-gray-700 space-y-3">

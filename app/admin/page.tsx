@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import {
   LogOut, Check, X, Users, Link as LinkIcon, FileText,
   ExternalLink, Trash2, CheckSquare, Square, Plus, Search,
-  ChevronLeft, ChevronRight, Edit2
+  ChevronLeft, ChevronRight, Copy, Edit2
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -47,24 +47,38 @@ export default function AdminDashboard() {
         fetch('/api/admin/receipts'),
       ]);
 
-      if (userRes.ok && subRes.ok && recRes.ok) {
-        const [ud, sd, rd] = await Promise.all([userRes.json(), subRes.json(), recRes.json()]);
-        setUsers(ud.users);
-        setUserPage(ud.page);
-        setUserTotalPages(ud.totalPages);
-        setUserTotal(ud.total);
-        setSubmissions(sd.submissions);
-        setSubPage(sd.page);
-        setSubTotalPages(sd.totalPages);
-        setSubTotal(sd.total);
-        setReceipts(rd.receipts);
+      // If the session is invalid (401 on users), redirect to login
+      if (userRes.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (userRes.ok) {
+        const ud = await userRes.json();
+        setUsers(ud.users ?? []);
+        setUserPage(ud.page ?? 1);
+        setUserTotalPages(ud.totalPages ?? 1);
+        setUserTotal(ud.total ?? 0);
         setSelectedUsers(new Set());
-        setSelectedSubmissions(new Set());
       } else {
-        router.push('/dashboard');
+        toast.error('Failed to load users');
+      }
+
+      if (subRes.ok) {
+        const sd = await subRes.json();
+        setSubmissions(sd.submissions ?? []);
+        setSubPage(sd.page ?? 1);
+        setSubTotalPages(sd.totalPages ?? 1);
+        setSubTotal(sd.total ?? 0);
+        setSelectedSubmissions(new Set());
+      }
+
+      if (recRes.ok) {
+        const rd = await recRes.json();
+        setReceipts(rd.receipts ?? []);
       }
     } catch {
-      toast.error('Error fetching admin data');
+      toast.error('Network error — please refresh');
     } finally {
       setLoading(false);
     }
@@ -105,6 +119,18 @@ export default function AdminDashboard() {
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST' });
     router.push('/login');
+  };
+
+  const handleCopyLinks = () => {
+    const links = filteredSubmissions
+      .filter(s => selectedSubmissions.has(s._id))
+      .map(s => s.link)
+      .join('\n');
+    navigator.clipboard.writeText(links).then(() => {
+      toast.success(`${selectedSubmissions.size} link(s) copied to clipboard!`);
+    }).catch(() => {
+      toast.error('Failed to copy — please allow clipboard access');
+    });
   };
 
   // Filtered lists
@@ -482,13 +508,22 @@ export default function AdminDashboard() {
                 />
               </div>
               {selectedSubmissions.size > 0 && (
-                <button
-                  onClick={() => handleDeleteSubmissions(Array.from(selectedSubmissions))}
-                  disabled={deleting}
-                  className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 whitespace-nowrap"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete {selectedSubmissions.size} Selected
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 font-medium whitespace-nowrap">{selectedSubmissions.size} selected</span>
+                  <button
+                    onClick={handleCopyLinks}
+                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap"
+                  >
+                    <Copy className="w-3.5 h-3.5" /> Copy Links
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSubmissions(Array.from(selectedSubmissions))}
+                    disabled={deleting}
+                    className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 whitespace-nowrap"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
+                </div>
               )}
             </div>
             <div className="overflow-x-auto">
